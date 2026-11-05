@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2D4059" />
+      <stop offset="100%" stop-color="#1D2A3B" />
+    </linearGradient>
+    <linearGradient id="lanternGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F27D6D" />
+      <stop offset="50%" stop-color="#E05A47" />
+      <stop offset="100%" stop-color="#B83C2B" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE0A3" />
+      <stop offset="100%" stop-color="#F4A261" />
+    </linearGradient>
+  </defs>
+
+  <!-- App Icon Squircle Base -->
+  <rect x="6" y="6" width="116" height="116" rx="28" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="6" />
+
+  <!-- Subtle Inner Washi Glow Ring -->
+  <circle cx="64" cy="64" r="46" fill="#F4A261" opacity="0.12" />
+
+  <!-- Decorative Sakura Petals in Corners -->
+  <circle cx="26" cy="30" r="4" fill="#F27D6D" opacity="0.8" />
+  <circle cx="102" cy="28" r="3.5" fill="#F4A261" opacity="0.8" />
+  <circle cx="24" cy="96" r="3" fill="#F4A261" opacity="0.7" />
+  <circle cx="104" cy="94" r="4" fill="#F27D6D" opacity="0.7" />
+
+  <!-- Hanging Ring & Top Cap of Lantern -->
+  <path d="M58 14 H70" stroke="#F4A261" stroke-width="4" stroke-linecap="round" />
+  <rect x="46" y="18" width="36" height="9" rx="4" fill="#2B2623" stroke="#F4A261" stroke-width="2.5" />
+
+  <!-- Main Chouchin (Japanese Red Lantern) Body -->
+  <ellipse cx="64" cy="62" rx="38" ry="36" fill="url(#lanternGrad)" stroke="#2B2623" stroke-width="4" />
+
+  <!-- Lantern Bamboo Ribs -->
+  <path d="M30 47 Q64 40 98 47" fill="none" stroke="#9E2E1F" stroke-width="3" />
+  <path d="M30 77 Q64 84 98 77" fill="none" stroke="#9E2E1F" stroke-width="3" />
+
+  <!-- Center White Washi Medallion on Lantern -->
+  <circle cx="64" cy="62" r="21" fill="#FAF3E0" stroke="#F4A261" stroke-width="3.5" />
+
+  <!-- Kanji "数" / Yen Motif Inside Medallion -->
+  <text
+    x="64"
+    y="71"
+    font-family="'Noto Sans JP', 'M PLUS Rounded 1c', sans-serif"
+    font-size="26"
+    font-weight="900"
+    fill="#2D4059"
+    text-anchor="middle"
+  >数</text>
+
+  <!-- Magic Tanuki Leaf on Top Right of Lantern -->
+  <path d="M76 18 C86 8, 102 14, 90 26 C84 28, 78 24, 76 18 Z" fill="#4A7C59" stroke="#FAF3E0" stroke-width="2" />
+
+  <!-- Bottom Cap & Golden Tassel -->
+  <rect x="48" y="95" width="32" height="8" rx="3.5" fill="#2B2623" stroke="#F4A261" stroke-width="2.5" />
+  <path d="M60 103 L57 115 M64 103 L64 116 M68 103 L71 115" stroke="url(#goldGrad)" stroke-width="3.5" stroke-linecap="round" />
+</svg>
+
