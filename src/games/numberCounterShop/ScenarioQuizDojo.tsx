@@ -261,6 +261,36 @@ export const ScenarioQuizDojo: React.FC<ScenarioQuizDojoProps> = ({
     setQuestionIndex((prev) => prev + 1);
   };
 
+  // Global Enter key handler so pressing Enter advances even when focus is lost
+  const enterActionRef = useRef<(e: KeyboardEvent) => void>();
+  enterActionRef.current = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' || e.isComposing || e.repeat || showMistakeDrawer) return;
+    const activeEl = document.activeElement as HTMLElement | null;
+    if (activeEl?.tagName === 'SELECT') return;
+
+    if (submittedResult) {
+      e.preventDefault();
+      handleNextQuestion();
+      return;
+    }
+
+    if (activeEl?.tagName === 'BUTTON' || activeEl?.tagName === 'A') return;
+    if (activeEl !== inputRef.current) {
+      e.preventDefault();
+      if (inputText.trim().length > 0) {
+        submitAnswer(inputText, false);
+      } else {
+        inputRef.current?.focus();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => enterActionRef.current?.(e);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const primaryReading = currentQuestion.acceptedReadings[0] || '';
   const hintString =
     primaryReading.length > 1

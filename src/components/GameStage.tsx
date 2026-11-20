@@ -5,6 +5,8 @@ import { getPlayerRankInfo, usePlayerSave } from '../engine/saveStore';
 
 interface GameStageProps {
   activeGameTitle?: string;
+  activeStageNumber?: number;
+  weaknessCount?: number;
   onReturnToMap?: () => void;
   onOpenMistakeQuiz?: () => void;
   children: React.ReactNode;
@@ -24,6 +26,8 @@ interface SakuraPetal {
 
 export const GameStage: React.FC<GameStageProps> = ({
   activeGameTitle,
+  activeStageNumber,
+  weaknessCount,
   onReturnToMap,
   onOpenMistakeQuiz,
   children,
@@ -152,7 +156,9 @@ export const GameStage: React.FC<GameStageProps> = ({
 
           {activeGameTitle && (
             <div className="hidden md:flex items-center gap-2 bg-aiiro-dark/70 px-3 py-1 rounded-xl border border-washi-border/30">
-              <span className="text-kohaku text-xs font-bold">STAGE 01</span>
+              <span className="text-kohaku text-xs font-bold">
+                STAGE {String(activeStageNumber ?? 1).padStart(2, '0')}
+              </span>
               <span className="text-washi-light font-extrabold text-sm">{activeGameTitle}</span>
             </div>
           )}
@@ -195,7 +201,7 @@ export const GameStage: React.FC<GameStageProps> = ({
               <BookOpen className="w-3.5 h-3.5 text-shuiro" />
               <span className="hidden sm:inline">弱点帳</span>
               <span className="px-1.5 py-0.2 rounded-full bg-shuiro text-white text-[11px]">
-                {save.mistakes.length}
+                {weaknessCount ?? save.mistakes.length}
               </span>
             </button>
           )}

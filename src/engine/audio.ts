@@ -159,37 +159,337 @@ class GameAudioEngine {
 
 export const gameAudio = new GameAudioEngine();
 
-// Japanese Text-To-Speech helper using Web Speech API
-export function speakJapanese(text: string, rate: number = 0.95, onEnd?: () => void): boolean {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+// Japanese Text-To-Speech helper using Web Speech API with strict Japanese voice validation
+// and automatic HTML5 Audio fallback (prevents silent kana or Mandarin Chinese voice fallback)
+
+const RELIABLE_JP_VOICE_NAMES = [
+  'Nanami',
+  'Keita',
+  'Haruka',
+  'Ayumi',
+  'Ichiro',
+  'Sayaka',
+  'Kyoko',
+  'O-Ren',
+  'Hattori',
+  'Microsoft',
+];
+
+let cachedJpVoice: SpeechSynthesisVoice | null = null;
+let voicesInitialized = false;
+let preferOnlineTts = false;
+let activeUtterance: SpeechSynthesisUtterance | null = null;
+let activeAudio: HTMLAudioElement | null = null;
+let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+let onlineAudioTimer: ReturnType<typeof setTimeout> | null = null;
+let speechRequestId = 0;
+
+function pickBestJapaneseVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+  try {
+    const voices = window.speechSynthesis.getVoices() || [];
+    const jpVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith('ja'));
+    if (jpVoices.length === 0) return null;
+
+    const hasReliableName = (v: SpeechSynthesisVoice) =>
+      RELIABLE_JP_VOICE_NAMES.some((name) => v.name.includes(name));
+
+    return (
+      jpVoices.find((v) => v.localService && hasReliableName(v)) ||
+      jpVoices.find((v) => v.localService) ||
+      jpVoices.find((v) => hasReliableName(v)) ||
+      jpVoices[0] ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
+function initJapaneseVoices() {
+  if (voicesInitialized || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    return;
+  }
+  voicesInitialized = true;
+  try {
+    cachedJpVoice = pickBestJapaneseVoice();
+    const synth = window.speechSynthesis;
+    const handleVoicesChanged = () => {
+      cachedJpVoice = pickBestJapaneseVoice();
+    };
+    if (typeof synth.addEventListener === 'function') {
+      synth.addEventListener('voiceschanged', handleVoicesChanged);
+    } else {
+      synth.onvoiceschanged = handleVoicesChanged;
+    }
+  } catch {
+    // ignore environments with partial speechSynthesis
+  }
+}
+
+initJapaneseVoices();
+
+export function stopJapaneseSpeech() {
+  speechRequestId += 1;
+  if (watchdogTimer) {
+    clearTimeout(watchdogTimer);
+    watchdogTimer = null;
+  }
+  if (onlineAudioTimer) {
+    clearTimeout(onlineAudioTimer);
+    onlineAudioTimer = null;
+  }
+  activeUtterance = null;
+
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      // ignore
+    }
+  }
+
+  if (activeAudio) {
+    try {
+      activeAudio.onended = null;
+      activeAudio.onerror = null;
+      activeAudio.onplaying = null;
+      activeAudio.onloadedmetadata = null;
+      activeAudio.pause();
+      activeAudio.src = '';
+    } catch {
+      // ignore
+    }
+    activeAudio = null;
+  }
+}
+
+export function buildOnlineTtsUrls(text: string, rate: number): string[] {
+  const isSentence = text.length > 8 || /[。、！？!?]/.test(text);
+  const noPunct = text.replace(/[。、！？!?・「」『』（）()]/g, ' ').replace(/\s+/g, ' ').trim();
+  const baiduSpd = rate < 0.8 ? 3 : 5;
+  const encodedFull = encodeURIComponent(text);
+  const encodedClean = encodeURIComponent(noPunct || text);
+
+  if (isSentence) {
+    return [
+      `https://fanyi.baidu.com/gettts?lan=jp&text=${encodedFull}&spd=${baiduSpd}&source=web`,
+      `https://dict.youdao.com/dictvoice?audio=${encodedClean}&le=jap`,
+      `https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=ja&client=tw-ob&q=${encodedFull}`,
+    ];
+  }
+
+  return [
+    `https://dict.youdao.com/dictvoice?audio=${encodedFull}&le=jap`,
+    `https://fanyi.baidu.com/gettts?lan=jp&text=${encodedFull}&spd=${baiduSpd}&source=web`,
+    `https://translate.googleapis.com/translate_tts?ie=UTF-8&tl=ja&client=tw-ob&q=${encodedFull}`,
+  ];
+}
+
+function playOnlineJapaneseAudio(
+  text: string,
+  rate: number,
+  reqId: number,
+  onEnd?: () => void
+): boolean {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') {
     onEnd?.();
     return false;
   }
 
-  try {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'ja-JP';
-    utter.rate = rate;
-    utter.pitch = 1.05;
+  const urls = buildOnlineTtsUrls(text, rate);
+  const clampedRate = Math.max(0.5, Math.min(1.5, rate));
 
-    const voices = window.speechSynthesis.getVoices();
-    const jpVoice =
-      voices.find((v) => v.lang.includes('ja') && (v.name.includes('Google') || v.name.includes('Kyoko') || v.name.includes('Haruka') || v.name.includes('Sayaka') || v.name.includes('Nanami'))) ||
-      voices.find((v) => v.lang.includes('ja') || v.lang.includes('JP'));
-
-    if (jpVoice) {
-      utter.voice = jpVoice;
+  const tryPlayAt = (idx: number) => {
+    if (reqId !== speechRequestId) return;
+    if (onlineAudioTimer) {
+      clearTimeout(onlineAudioTimer);
+      onlineAudioTimer = null;
+    }
+    if (idx >= urls.length) {
+      onEnd?.();
+      return;
     }
 
-    utter.onend = () => onEnd?.();
-    utter.onerror = () => onEnd?.();
+    const audio = new Audio(urls[idx]);
+    audio.setAttribute('referrerpolicy', 'no-referrer');
+    audio.playbackRate = clampedRate;
+    activeAudio = audio;
+
+    let advanced = false;
+    let playingStarted = false;
+
+    const cleanupAudio = () => {
+      if (onlineAudioTimer) {
+        clearTimeout(onlineAudioTimer);
+        onlineAudioTimer = null;
+      }
+      audio.onended = null;
+      audio.onerror = null;
+      audio.onplaying = null;
+      audio.onloadedmetadata = null;
+    };
+
+    const fallbackNext = () => {
+      if (advanced || reqId !== speechRequestId) return;
+      advanced = true;
+      cleanupAudio();
+      try {
+        audio.pause();
+        audio.src = '';
+      } catch {
+        // ignore
+      }
+      tryPlayAt(idx + 1);
+    };
+
+    onlineAudioTimer = setTimeout(() => {
+      if (!playingStarted && reqId === speechRequestId) {
+        fallbackNext();
+      }
+    }, 2500);
+
+    audio.onloadedmetadata = () => {
+      if (reqId !== speechRequestId) return;
+      audio.playbackRate = clampedRate;
+      if (Number.isFinite(audio.duration) && audio.duration > 0 && audio.duration < 0.25 && text.length >= 6) {
+        fallbackNext();
+      }
+    };
+
+    audio.onplaying = () => {
+      if (reqId !== speechRequestId) return;
+      playingStarted = true;
+      if (onlineAudioTimer) {
+        clearTimeout(onlineAudioTimer);
+        onlineAudioTimer = null;
+      }
+      audio.playbackRate = clampedRate;
+    };
+
+    audio.onended = () => {
+      if (reqId !== speechRequestId) return;
+      cleanupAudio();
+      if (!playingStarted || (Number.isFinite(audio.duration) && audio.duration < 0.25 && text.length >= 6)) {
+        tryPlayAt(idx + 1);
+        return;
+      }
+      activeAudio = null;
+      onEnd?.();
+    };
+    audio.onerror = fallbackNext;
+
+    try {
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          fallbackNext();
+        });
+      }
+    } catch {
+      fallbackNext();
+    }
+  };
+
+  tryPlayAt(0);
+  return true;
+}
+
+export function speakJapanese(text: string, rate: number = 0.95, onEnd?: () => void): boolean {
+  const cleanText = text.trim();
+  if (!cleanText || typeof window === 'undefined') {
+    onEnd?.();
+    return false;
+  }
+
+  stopJapaneseSpeech();
+  const reqId = speechRequestId;
+  initJapaneseVoices();
+
+  const jpVoice = cachedJpVoice || pickBestJapaneseVoice();
+  if (jpVoice) {
+    cachedJpVoice = jpVoice;
+  }
+
+  // If no genuine Japanese voice exists (or Web Speech failed earlier), skip directly to online Japanese TTS
+  if (preferOnlineTts || !jpVoice || !('speechSynthesis' in window)) {
+    return playOnlineJapaneseAudio(cleanText, rate, reqId, onEnd);
+  }
+
+  try {
+    const utter = new SpeechSynthesisUtterance(cleanText);
+    utter.lang = jpVoice.lang || 'ja-JP';
+    utter.voice = jpVoice;
+    utter.rate = rate;
+    utter.pitch = 1.05;
+    activeUtterance = utter;
+
+    let started = false;
+    let settled = false;
+
+    const triggerFallback = () => {
+      if (settled || reqId !== speechRequestId) return;
+      settled = true;
+      preferOnlineTts = true;
+      activeUtterance = null;
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore
+      }
+      playOnlineJapaneseAudio(cleanText, rate, reqId, onEnd);
+    };
+
+    watchdogTimer = setTimeout(() => {
+      if (!started && reqId === speechRequestId) {
+        triggerFallback();
+      }
+    }, 1200);
+
+    utter.onstart = () => {
+      started = true;
+      if (watchdogTimer) {
+        clearTimeout(watchdogTimer);
+        watchdogTimer = null;
+      }
+    };
+
+    utter.onend = () => {
+      if (watchdogTimer) {
+        clearTimeout(watchdogTimer);
+        watchdogTimer = null;
+      }
+      if (settled || reqId !== speechRequestId) return;
+      settled = true;
+      activeUtterance = null;
+      onEnd?.();
+    };
+
+    utter.onerror = (event) => {
+      if (watchdogTimer) {
+        clearTimeout(watchdogTimer);
+        watchdogTimer = null;
+      }
+      if (settled || reqId !== speechRequestId) return;
+      const errCode = event?.error;
+      if (errCode === 'interrupted' || errCode === 'canceled') {
+        settled = true;
+        activeUtterance = null;
+        return;
+      }
+      if (!started) {
+        triggerFallback();
+      } else {
+        settled = true;
+        activeUtterance = null;
+        onEnd?.();
+      }
+    };
 
     window.speechSynthesis.speak(utter);
     return true;
   } catch {
-    onEnd?.();
-    return false;
+    return playOnlineJapaneseAudio(cleanText, rate, reqId, onEnd);
   }
 }
 

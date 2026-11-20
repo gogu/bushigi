@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "test:engine": "npx tsx src/data/__tests__/verifyEngine.ts"
+    "slice:cards": "python scripts/slice-word-sheet.py",
+    "test:engine": "npx tsx src/data/__tests__/verifyEngine.ts",
+    "test:spelling": "npx tsx src/data/__tests__/verifySpelling.ts"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.3",

@@ -39,7 +39,7 @@ export default {
         }
       },
       fontFamily: {
-        game: ['"M PLUS Rounded 1c"', '"Hiragino Maru Gothic ProN"', '"Noto Sans JP"', '"Yu Gothic"', 'sans-serif'],
+        game: ['"M PLUS Rounded 1c"', '"Noto Sans JP"', '"Noto Sans SC"', '"PingFang SC"', '"Microsoft YaHei"', '"Hiragino Maru Gothic ProN"', '"Hiragino Sans GB"', 'sans-serif'],
         mono: ['"JetBrains Mono"', '"Courier New"', 'monospace'],
       },
       boxShadow: {

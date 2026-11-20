@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Play, Lock, Calculator, MessageSquareHeart, ScrollText, Trophy, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Play, Lock, Calculator, MessageSquareHeart, ScrollText, PenTool, Trophy, CheckCircle2 } from 'lucide-react';
 import { MINI_GAMES_MANIFEST, MiniGameManifest } from '../engine/gameRegistry';
 import { gameAudio } from '../engine/audio';
 import { usePlayerSave } from '../engine/saveStore';
 import { ShopkeeperAvatar } from './ShopkeeperAvatar';
 
 interface WorldMapMenuProps {
-  onSelectGame: (gameId: string, initialStation?: 'lookup' | 'quiz' | 'scroll') => void;
+  onSelectGame: (gameId: string, initialStation?: string) => void;
 }
 
 export const WorldMapMenu: React.FC<WorldMapMenuProps> = ({ onSelectGame }) => {
@@ -21,10 +21,11 @@ export const WorldMapMenu: React.FC<WorldMapMenuProps> = ({ onSelectGame }) => {
   const handleCardClick = (game: MiniGameManifest) => {
     if (game.status === 'playable') {
       gameAudio.playCashRegister();
-      onSelectGame(game.id, 'lookup');
+      const defaultStation = game.id === 'word-spelling-shop' ? 'arena' : 'lookup';
+      onSelectGame(game.id, defaultStation);
     } else {
       gameAudio.playError();
-      setLockedNotice(`『${game.shopName}』は現在開店準備中です！まずは第1関「かず・カウンター屋」で修行しましょう♪`);
+      setLockedNotice(`『${game.shopName}』は現在開店準備中です！開店中の第1関・第2関で修行しよう♪`);
     }
   };
 
@@ -44,7 +45,7 @@ export const WorldMapMenu: React.FC<WorldMapMenuProps> = ({ onSelectGame }) => {
           size="md"
           speechText={
             lockedNotice ||
-            'ようこそ「ふしぎ商店街」へ！ここでは日本の数字・日付・お金・助数詞（量詞）の本物の言い方を楽しく修行できるよ！'
+            'ようこそ「ふしぎ商店街」へ！第1関「かず・カウンター屋」と新装開店・第2関「ことば・つづり屋（单词拼写）」が営業中だよ！'
           }
         />
 
@@ -100,6 +101,17 @@ export const WorldMapMenu: React.FC<WorldMapMenuProps> = ({ onSelectGame }) => {
             >
               <ScrollText className="w-3.5 h-3.5" />
               <span>虎の巻表</span>
+            </button>
+            <button
+              onClick={() => {
+                gameAudio.playCashRegister();
+                onSelectGame('word-spelling-shop', 'arena');
+              }}
+              onMouseEnter={() => gameAudio.playHover()}
+              className="game-btn flex items-center gap-1 bg-aiiro hover:bg-aiiro-light text-kohaku-light font-extrabold text-xs px-3 py-2 rounded-xl border-2 border-aiiro-dark shadow-game-btn"
+            >
+              <PenTool className="w-3.5 h-3.5" />
+              <span>単語スペル</span>
             </button>
           </div>
         </div>
@@ -194,7 +206,11 @@ export const WorldMapMenu: React.FC<WorldMapMenuProps> = ({ onSelectGame }) => {
                     <>
                       <div className="text-xs font-extrabold text-matcha-dark flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-matcha animate-ping" />
-                        <span>3つの修行モード搭載・音声認識対応</span>
+                        <span>
+                          {game.id === 'word-spelling-shop'
+                            ? '3つの修行モード搭載・逐字スペル診断対応'
+                            : '3つの修行モード搭載・音声認識対応'}
+                        </span>
                       </div>
                       <button
                         className={`game-btn flex items-center gap-1.5 px-4 py-2 rounded-xl font-black text-sm border-2 border-aiiro-dark shadow-game-btn ${

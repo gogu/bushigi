@@ -2,7 +2,7 @@ import React from 'react';
 
 export interface MiniGameProps {
   onBackToMap: () => void;
-  initialStation?: 'lookup' | 'quiz' | 'scroll';
+  initialStation?: string;
 }
 
 export interface MiniGameManifest {
@@ -38,19 +38,19 @@ export const MINI_GAMES_MANIFEST: MiniGameManifest[] = [
     ],
   },
   {
-    id: 'teishoku-keigo-shop',
+    id: 'word-spelling-shop',
     stageNumber: 2,
-    shopName: 'ていしょく屋・敬語食堂',
-    title: '注文・接客・尊敬語と謙譲語',
-    subtitle: '餐厅点单、便利店敬语、尊他与自谦语的料理配菜闯关游戏（可扩展卡槽）',
-    badgeText: 'STAGE 02 · 準備中',
-    emoji: '🍱',
+    shopName: 'ことば・つづり屋',
+    title: '単語スペルチェック・活版道場',
+    subtitle: '看汉字、看中义或听音拼写日语单词！内置逐假名 Diff 错因诊断与 4×5 手账词卡（首批收录生活与建筑 20 词）',
+    badgeText: 'STAGE 02 · 営業中',
+    emoji: '🖋️',
     accentColor: 'kohaku',
-    status: 'coming_soon',
+    status: 'playable',
     features: [
-      '🍵 敬語変換ガチャ：常体/敬体/尊他/自谦极速转换',
-      '🥢 居酒屋注文パズル：听顾客语音点单摆盘',
-      '📖 接客フレーズ手帖：高频打工与旅游会话汇总',
+      '🖋️ 活字検品台：4种题面 + 罗马音智能转平/片假名 + 活字积木',
+      '🔍 逐字诊断器：精准标出长音、清浊音、拗音与形近词错误',
+      '🃏 4×5 词卡图鉴：翻面自测、TTS 朗读与熟练度星级追踪',
     ],
   },
   {

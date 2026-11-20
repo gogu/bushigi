@@ -12,6 +12,16 @@ export interface MistakeEntry {
   lastTimestamp: number;
 }
 
+export interface WordMasteryRecord {
+  wordId: string;
+  correctCount: number;
+  wrongCount: number;
+  stars: number;           // 0..3
+  needsReview: boolean;
+  lastWrongInput?: string;
+  lastPracticedAt: number;
+}
+
 export interface PlayerSaveData {
   exp: number;
   coins: number;
@@ -19,6 +29,7 @@ export interface PlayerSaveData {
   totalAnswered: number;
   totalCorrect: number;
   mistakes: MistakeEntry[];
+  wordMastery: Record<string, WordMasteryRecord>;
 }
 
 const STORAGE_KEY = 'bushigi_shoutengai_save_v1';
@@ -30,6 +41,7 @@ const DEFAULT_SAVE: PlayerSaveData = {
   totalAnswered: 0,
   totalCorrect: 0,
   mistakes: [],
+  wordMastery: {},
 };
 
 export interface PlayerRankInfo {
@@ -91,6 +103,10 @@ class SaveStore {
         ...DEFAULT_SAVE,
         ...parsed,
         mistakes: Array.isArray(parsed.mistakes) ? parsed.mistakes : [],
+        wordMastery:
+          parsed.wordMastery && typeof parsed.wordMastery === 'object'
+            ? parsed.wordMastery
+            : {},
       };
     } catch {
       return { ...DEFAULT_SAVE };
@@ -172,6 +188,73 @@ class SaveStore {
     this.data = {
       ...this.data,
       mistakes: this.data.mistakes.filter((m) => m.id !== id),
+    };
+    this.persist();
+  }
+
+  public recordWordResult(
+    wordId: string,
+    isCorrect: boolean,
+    combo: number,
+    wrongInput?: string
+  ): { gainedExp: number; gainedCoins: number } {
+    const prev = this.data.wordMastery[wordId] || {
+      wordId,
+      correctCount: 0,
+      wrongCount: 0,
+      stars: 0,
+      needsReview: false,
+      lastPracticedAt: Date.now(),
+    };
+
+    const nextRecord: WordMasteryRecord = isCorrect
+      ? {
+          ...prev,
+          correctCount: prev.correctCount + 1,
+          stars: Math.min(3, prev.stars + 1),
+          needsReview: false,
+          lastPracticedAt: Date.now(),
+        }
+      : {
+          ...prev,
+          wrongCount: prev.wrongCount + 1,
+          stars: Math.max(0, prev.stars - 1),
+          needsReview: true,
+          lastWrongInput: wrongInput,
+          lastPracticedAt: Date.now(),
+        };
+
+    const gainedExp = isCorrect ? 25 + Math.min(combo, 10) * 5 : 0;
+    const gainedCoins = isCorrect ? 15 + Math.min(combo, 10) * 3 : 0;
+
+    this.data = {
+      ...this.data,
+      exp: this.data.exp + gainedExp,
+      coins: this.data.coins + gainedCoins,
+      maxCombo: isCorrect ? Math.max(this.data.maxCombo, combo) : this.data.maxCombo,
+      totalAnswered: this.data.totalAnswered + 1,
+      totalCorrect: isCorrect ? this.data.totalCorrect + 1 : this.data.totalCorrect,
+      wordMastery: {
+        ...this.data.wordMastery,
+        [wordId]: nextRecord,
+      },
+    };
+    this.persist();
+    return { gainedExp, gainedCoins };
+  }
+
+  public clearWordReview(wordId: string) {
+    const prev = this.data.wordMastery[wordId];
+    if (!prev) return;
+    this.data = {
+      ...this.data,
+      wordMastery: {
+        ...this.data.wordMastery,
+        [wordId]: {
+          ...prev,
+          needsReview: false,
+        },
+      },
     };
     this.persist();
   }
